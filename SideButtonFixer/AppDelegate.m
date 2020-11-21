@@ -24,6 +24,7 @@
 
 static NSMutableDictionary<NSNumber*, NSArray<NSDictionary*>*>* swipeInfo = nil;
 static NSArray* nullArray = nil;
+static NSArray<NSString*>* whiteListAppBundleIds;
 
 static void SBFFakeSwipe(TLInfoSwipeDirection dir) {
     CGEventRef event1 = tl_CGEventCreateFromGesture((__bridge CFDictionaryRef)(swipeInfo[@(dir)][0]), (__bridge CFArrayRef)nullArray);
@@ -36,7 +37,23 @@ static void SBFFakeSwipe(TLInfoSwipeDirection dir) {
     CFRelease(event2);
 }
 
+static BOOL isWhitelistedApp (void) {
+    NSString* fgAppId = [[[NSWorkspace sharedWorkspace] frontmostApplication] bundleIdentifier];
+    if (!fgAppId) return FALSE;
+    
+    for (NSString* appBundleId in whiteListAppBundleIds) {
+        if ([fgAppId isEqualToString:appBundleId]) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 static CGEventRef SBFMouseCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
+    if (isWhitelistedApp()) {
+        return event;
+    }
+    
     int64_t number = CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber);
     BOOL down = (CGEventGetType(event) == kCGEventOtherMouseDown);
     
@@ -152,6 +169,11 @@ typedef NS_ENUM(NSInteger, MenuItem) {
         nullArray = @[];
     }
     
+    // init whitelisted applications
+    {
+        whiteListAppBundleIds = [NSArray arrayWithObject: @"com.microsoft.VSCode"];
+    }
+    
     // create status bar item
     {
         self.statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSSquareStatusItemLength];
@@ -183,7 +205,6 @@ typedef NS_ENUM(NSInteger, MenuItem) {
         
         [menu addItem:[NSMenuItem separatorItem]];
         assert(menu.itemArray.count - 1 == MenuItemOptionsSeparator);
-        
         
         NSMenuItem* hideItem = [[NSMenuItem alloc] initWithTitle:@"Hide Menu Bar Icon" action:@selector(hideMenubarItem:) keyEquivalent:@""];
         [menu addItem:hideItem];
@@ -224,6 +245,12 @@ typedef NS_ENUM(NSInteger, MenuItem) {
         [menu addItem:quit];
         assert(menu.itemArray.count - 1 == MenuItemQuit);
         
+//        NSString* fgAppId = [[[NSWorkspace sharedWorkspace] frontmostApplication] bundleIdentifier];
+//
+//        NSMenuItem* swapItemX = [[NSMenuItem alloc] initWithTitle:@"Whitelist activating app" action:@selector(swapToggle:) keyEquivalent:@""];
+//        swapItem.state = NSControlStateValueOff;
+//        [menu addItem:swapItemX];
+//
         self.statusItem.menu = menu;
     }
     
